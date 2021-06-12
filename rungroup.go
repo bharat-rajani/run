@@ -2,7 +2,11 @@ package rungroup
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
+
+	"github.com/bharat-rajani/rungroup/pkg/concurrent"
 )
 
 // A Group is a collection of goroutines working on subtasks that are part of
@@ -17,7 +21,7 @@ type Group struct {
 
 	errOnce sync.Once
 	err     error
-	errMap  map[string]error
+	errMap  *concurrent.ConcurrentMap
 }
 
 // WithContext returns a new Group and an associated Context derived from ctx.
@@ -27,7 +31,17 @@ type Group struct {
 // or the first time Wait returns, whichever occurs first.
 func WithContext(ctx context.Context) (*Group, context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
-	return &Group{cancel: cancel, errMap: make(map[string]error)}, ctx
+	return &Group{cancel: cancel}, ctx
+}
+
+// WithContextErrorMap takes context(ctx) and concurrent map and
+// returns a new Group and an associated Context derived from ctx.
+//
+// The only difference in WithContextErrorMap is that it provides error tracking of goroutines.
+// Error tracking uses concurrent map where key is routine id and value is error from goroutine.
+func WithContextErrorMap(ctx context.Context, errMap concurrent.ConcurrentMap) (*Group, context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	return &Group{cancel: cancel, errMap: &errMap}, ctx
 }
 
 // Wait blocks until all function calls from the Go method have returned, then
@@ -51,7 +65,9 @@ func (g *Group) Go(f func() error, interrupter bool, id string) {
 		defer g.wg.Done()
 
 		if err := f(); err != nil {
-			g.errMap[id] = err
+			if g.errMap != nil {
+				(*g.errMap).Store(id, err)
+			}
 			if interrupter {
 				g.errOnce.Do(func() {
 					g.err = err
@@ -64,9 +80,21 @@ func (g *Group) Go(f func() error, interrupter bool, id string) {
 	}()
 }
 
-// GetErrById returns the error associated with goroutine id
-func (g *Group) GetErrById(id string) error {
-	return g.errMap[id]
+// GetErrByID returns the error associated with goroutine id
+func (g *Group) GetErrByID(id string) (error, bool) {
+	if g.errMap == nil {
+		return ErrGroupNilMap, false
+	}
+	errVal, ok := (*g.errMap).Load(id)
+	if ok {
+		castedErrVal, ok := errVal.(error)
+		if ok {
+			return castedErrVal, ok
+		} else {
+			return fmt.Errorf("cannot cast %v into error", errVal), false
+		}
+	}
+	return nil, ok
 }
 
 // GoWithFunc is a closure over a normal input func.
@@ -105,3 +133,6 @@ func (g *Group) GoWithFunc(f func(ctx context.Context) error,
 
 	g.Go(gFunc, interrupter, id)
 }
+
+// ErrGroupNilMap is thrown when performing group.GetErrByID when Group.errMap is nil
+var ErrGroupNilMap error = errors.New("uninitialized error map in rungroup, use: WithContextErrMap")
