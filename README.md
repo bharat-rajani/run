@@ -53,12 +53,11 @@ import (
 func main() {
 	g, ctx := rungroup.WithContextErrorMap(context.Background(),concurrent.NewRWMutexMap())
 	// g, ctx := rungroup.WithContextErrorMap(context.Background(),new(sync)) //refer Benchmarks for performance difference
-
-	// error placeholder
-	var tErr error
+	
 	var fResp, sResp, tResp *http.Response
 	g.GoWithFunc(func(ctx context.Context) error {
-
+		// error placeholder
+		var tErr error
 		fResp, tErr = http.Get("F_API_URL")
 		if tErr != nil {
 			return tErr
@@ -67,7 +66,8 @@ func main() {
 	}, ctx, true, "F_API")
 
 	g.GoWithFunc(func(ctx context.Context) error {
-
+		// error placeholder
+		var tErr error
 		sResp, tErr = http.Get("S_API_URL")
 		if tErr != nil {
 			return tErr
@@ -77,6 +77,8 @@ func main() {
 	}, ctx, false, "S_API")
 
 	g.GoWithFunc(func(ctx context.Context) error {
+		// error placeholder
+		var tErr error
 		tResp, tErr = http.Get("T_API_URL")
 		if tErr != nil {
 			return tErr
