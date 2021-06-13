@@ -134,5 +134,5 @@ func (g *Group) GoWithFunc(f func(ctx context.Context) error,
 	g.Go(gFunc, interrupter, id)
 }
 
-// ErrGroupNilMap is thrown when performing group.GetErrByID when Group.errMap is nil
+// ErrGroupNilMap is thrown while calling group.GetErrByID() when Group.errMap is nil
 var ErrGroupNilMap error = errors.New("uninitialized error map in rungroup, use: WithContextErrMap")

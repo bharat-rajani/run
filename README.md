@@ -1,10 +1,12 @@
 # rungroup
+:runner: :running_woman:
+
 [![GoDoc](https://pkg.go.dev/badge/github.com/bharat-rajani/rungroup)](https://godoc.org/github.com/bharat-rajani/rungroup)
 [![GoVersion](https://img.shields.io/github/go-mod/go-version/bharat-rajani/rungroup)](https://github.com/bharat-rajani/rungroup/blob/main/go.mod)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/report/github.com/bharat-rajani/rungroup)
 [![MIT licensed](https://img.shields.io/github/license/bharat-rajani/rungroup)](https://github.com/bharat-rajani/rungroup/blob/main/LICENSE)
 
-### Goroutines lifecycle manager
+### Goroutines lifecycle manager :bug: :butterfly: :coffin:
 
 Rungroup was created to manage multiple goroutines which may or may not interrupt other goroutines on error.
 
@@ -20,7 +22,7 @@ A goroutine in rungroup is essentially composition of:
 - a user(programmer) defined function which returns error
 - an identifier (string) which may help you to track goroutine error.
 
-> Rungroup is inspired by errorgroup.
+> Rungroup is inspired by [errorgroup]( https://github.com/golang/sync/blob/master/errgroup/errgroup.go).
 
 ### Installation:
 ```shell
@@ -112,7 +114,7 @@ Ok, I heard you, using concurrent maps comes with performance tradeoff.
 If you don't want to track errors of all gorutines and you are happy with first occurring error, then just use rungroup WithContext:
 
 ```golang
-g, ctx := rungroup.WithContext(context.Background(),concurrent.NewRWMutexMap())
+g, ctx := rungroup.WithContext(context.Background())
 ...
 ...
 ```
