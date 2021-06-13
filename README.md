@@ -119,3 +119,5 @@ g, ctx := rungroup.WithContext(context.Background())
 ```
 
 > Note: When you use rungroup.WithContext (no error tracking) then calling g.GetErrorByID() will yield you a nice uninitialized map error and ok = false.
+
+> Rungroup is inspired by [errorgroup]( https://github.com/golang/sync/blob/master/errgroup/errgroup.go).
