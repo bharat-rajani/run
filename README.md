@@ -21,7 +21,6 @@ A goroutine in rungroup is essentially composition of:
 - a user(programmer) defined function which returns error
 - an identifier (string) which may help you to track goroutine error.
 
-> Rungroup is inspired by [errorgroup]( https://github.com/golang/sync/blob/master/errgroup/errgroup.go).
 
 ### Installation :floppy_disk::
 ```shell
