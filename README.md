@@ -1,5 +1,4 @@
-# rungroup
-:runner: :running_woman:
+# rungroup :rainbow:
 
 [![GoDoc](https://pkg.go.dev/badge/github.com/bharat-rajani/rungroup)](https://godoc.org/github.com/bharat-rajani/rungroup)
 [![GoVersion](https://img.shields.io/github/go-mod/go-version/bharat-rajani/rungroup)](https://github.com/bharat-rajani/rungroup/blob/main/go.mod)
@@ -24,14 +23,14 @@ A goroutine in rungroup is essentially composition of:
 
 > Rungroup is inspired by [errorgroup]( https://github.com/golang/sync/blob/master/errgroup/errgroup.go).
 
-### Installation:
+### Installation :floppy_disk::
 ```shell
 go get -u github.com/bharat-rajani/rungroup   
 ```
 
-### Example:
+### Example :keyboard::
 
-#### A quick and simple example, where we need to call 3 REST Endpoints concurrently.
+#### A quick and simple (and maybe dirty) example, where we need to call 3 REST Endpoints concurrently.
 
 Three gorutines:
 - F_API, interrupter
