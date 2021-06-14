@@ -177,7 +177,7 @@ func TestWithContext_GoWithFunc(t *testing.T) {
 			totalChan := make(chan uint64, 1)
 			go func() {
 				total := uint64(0)
-				for _ = range errorChan {
+				for range errorChan {
 					atomic.AddUint64(&total, 1)
 				}
 				totalChan <- total
@@ -297,8 +297,8 @@ func TestGroup_GetErrById_GroupNilMapError(t *testing.T) {
 				t.Fail()
 				ticker.Stop()
 				done <- true
-				return
 				ctx.Done()
+				return
 			}
 		}
 

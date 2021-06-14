@@ -52,7 +52,7 @@ import (
 
 func main() {
 	g, ctx := rungroup.WithContextErrorMap(context.Background(),concurrent.NewRWMutexMap())
-	// g, ctx := rungroup.WithContextErrorMap(context.Background(),new(sync)) //refer Benchmarks for performance difference
+	// g, ctx := rungroup.WithContextErrorMap(context.Background(),new(sync.Map)) //refer Benchmarks for performance difference
 	
 	var fResp, sResp, tResp *http.Response
 	g.GoWithFunc(func(ctx context.Context) error {
