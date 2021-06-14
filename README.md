@@ -1,6 +1,8 @@
 # rungroup :rainbow:
 
 [![GoDoc](https://pkg.go.dev/badge/github.com/bharat-rajani/rungroup)](https://godoc.org/github.com/bharat-rajani/rungroup)
+![Build](https://github.com/bharat-rajani/rungroup/actions/workflows/push.yml/badge.svg)
+[![Codecov](https://codecov.io/gh/bharat-rajani/rungroup/branch/main/graph/badge.svg?token=K0JRWEWYWX)](https://codecov.io/gh/bharat-rajani/rungroup)
 [![GoVersion](https://img.shields.io/github/go-mod/go-version/bharat-rajani/rungroup)](https://github.com/bharat-rajani/rungroup/blob/main/go.mod)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/report/github.com/bharat-rajani/rungroup)
 [![MIT licensed](https://img.shields.io/github/license/bharat-rajani/rungroup)](https://github.com/bharat-rajani/rungroup/blob/main/LICENSE)
