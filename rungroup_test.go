@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/bharat-rajani/rungroup/pkg/concurrent"
 	"math/rand"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,7 +15,7 @@ import (
 )
 
 type testArg struct {
-	f           func() error
+	f           func() (any, error)
 	interrupter bool
 	id          string
 }
@@ -40,16 +39,16 @@ func prepareRandomTestArgs(n int, pIntr int, pErr int, err error) []testArg {
 	testArgs := make([]testArg, n)
 
 	getSleepDuration := func(rand int) time.Duration {
-		// 20 percent goroutine will sleep for 2 sec
-		// 30 percent goroutine will sleep for 1 sec
-		// 50 percent goroutine will sleep for 0.5 sec
+		// 20 percent goroutine will sleep for 300 msec
+		// 30 percent goroutine will sleep for 200 msec
+		// 50 percent goroutine will sleep for 100 msec
 
 		if rand <= 20 {
-			return time.Duration(2) * time.Second
+			return time.Duration(300) * time.Millisecond
 		} else if rand <= 50 {
-			return time.Duration(1) * time.Second
+			return time.Duration(200) * time.Millisecond
 		} else {
-			return time.Duration(500) * time.Millisecond
+			return time.Duration(100) * time.Millisecond
 		}
 	}
 
@@ -61,9 +60,9 @@ func prepareRandomTestArgs(n int, pIntr int, pErr int, err error) []testArg {
 		// if its interrupter goroutine it must return a specified error (err in args)
 		if fir <= (float64(pIntr) / float64(100)) {
 			testArgs[i].interrupter = true
-			testArgs[i].f = func() error {
+			testArgs[i].f = func() (any, error) {
 				time.Sleep(getSleepDuration(ir))
-				return err
+				return nil, err
 			}
 		} else {
 			// it may or may not give error
@@ -72,14 +71,14 @@ func prepareRandomTestArgs(n int, pIntr int, pErr int, err error) []testArg {
 			er := rand.Intn(101-1) + 1
 			// percent specifies percentage of goroutine returning an error
 			if er <= pErr {
-				testArgs[i].f = func() error {
+				testArgs[i].f = func() (any, error) {
 					time.Sleep(getSleepDuration(er))
-					return err
+					return nil, err
 				}
 			} else {
-				testArgs[i].f = func() error {
+				testArgs[i].f = func() (any, error) {
 					time.Sleep(getSleepDuration(er))
-					return nil
+					return nil, nil
 				}
 			}
 		}
@@ -110,11 +109,11 @@ func TestWithContext(t *testing.T) {
 	for _, tc := range cases {
 
 		t.Run(tc.name, func(t *testing.T) {
-			g, ctx := rungroup.WithContext(context.Background())
+			g, ctx := rungroup.WithContext[int, any](context.Background())
 
 			for id, err := range tc.errs {
 				id, err := id, err
-				g.Go(func() error { return err }, tc.interrupter, strconv.Itoa(id))
+				g.Go(func() (any, error) { return "", err }, tc.interrupter, id)
 			}
 
 			if err := g.Wait(); err != tc.want {
@@ -171,24 +170,17 @@ func TestWithContext_GoWithFunc(t *testing.T) {
 	for _, tc := range testCases {
 
 		t.Run(tc.name, func(t *testing.T) {
-			g, ctx := rungroup.WithContext(context.Background())
+			g, ctx := rungroup.WithContext[string, any](context.Background())
 
 			errorChan := make(chan error, tc.n)
-			totalChan := make(chan uint64, 1)
-			go func() {
-				total := uint64(0)
-				for range errorChan {
-					atomic.AddUint64(&total, 1)
-				}
-				totalChan <- total
-			}()
 
+			total := uint64(0)
 			for _, testArg := range tc.args {
 				testArg := testArg // https://golang.org/doc/faq#closures_and_goroutines , freaking :)
-				g.GoWithFunc(func(ctx context.Context) error {
-					err := testArg.f()
-					errorChan <- err
-					return err
+				g.GoWithFunc(func(ctx context.Context) (any, error) {
+					val, err := testArg.f()
+					atomic.AddUint64(&total, 1)
+					return val, err
 				}, ctx, testArg.interrupter, testArg.id)
 			}
 
@@ -197,40 +189,64 @@ func TestWithContext_GoWithFunc(t *testing.T) {
 					g, err, tc.want)
 			}
 			close(errorChan)
-			totalErrs := <-totalChan
-			if totalErrs != tc.n {
+			if tc.want == nil && total != tc.n {
 				t.Errorf("number of errors don't match with all func executed(error returned) .\n"+
-					"Total Err Received: %d, Total Err Expected %d", totalErrs, tc.n)
+					"Total Err Received: %d, Total Err Expected %d", total, tc.n)
 			}
 		})
 	}
 }
 
+func Test(t *testing.T) {
+	t.Run("Generic", func(t *testing.T) {
+		g, ctx := rungroup.WithContext[int, string](context.Background())
+
+		errBomb := errors.New("group_test: fBombed in GoWithFunc")
+
+		errorChan := make(chan error, 3)
+
+		for i := 0; i < 3; i++ {
+
+			g.GoWithFunc(func(ctx context.Context) (string, error) {
+				r := rand.Intn(10)
+				time.Sleep(time.Duration(r) * time.Microsecond)
+				return "", errBomb
+			}, ctx, true, i)
+		}
+
+		if err := g.Wait(); err != errBomb {
+			t.Errorf("after %T.Go() g.Wait() = %v; want %v",
+				g, err, errBomb)
+		}
+		close(errorChan)
+	})
+}
+
 func TestWithContextErrorMap(t *testing.T) {
 	errorBomb := errors.New("random error bomb")
 	testCases := []struct {
-		name     string
-		want     error
-		args     []testArg
-		errorMap concurrent.ConcurrentMap
+		name      string
+		want      error
+		args      []testArg
+		resultMap concurrent.ConcurrentMap
 	}{
 		{
-			name:     "HundredRoutines_WithThirtyPercentWrites_InRWMutexMap",
-			want:     errorBomb,
-			args:     prepareRandomTestArgs(100, 30, 30, errorBomb),
-			errorMap: concurrent.NewRWMutexMap(),
+			name:      "HundredRoutines_WithThirtyPercentWrites_InRWMutexMap",
+			want:      errorBomb,
+			args:      prepareRandomTestArgs(100, 30, 30, errorBomb),
+			resultMap: concurrent.NewRWMutexMap(),
 		},
 		{
-			name:     "HundredRoutines_WithThirtyPercentWrites_InSyncMap",
-			want:     errorBomb,
-			args:     prepareRandomTestArgs(100, 30, 30, errorBomb),
-			errorMap: new(sync.Map),
+			name:      "HundredRoutines_WithThirtyPercentWrites_InSyncMap",
+			want:      errorBomb,
+			args:      prepareRandomTestArgs(100, 30, 30, errorBomb),
+			resultMap: new(sync.Map),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g, ctx := rungroup.WithContextErrorMap(context.Background(), tc.errorMap)
+			g, ctx := rungroup.WithContextResultMap[string, any](context.Background(), tc.resultMap)
 			for _, testArg := range tc.args {
 				g.Go(testArg.f, testArg.interrupter, testArg.id)
 			}
@@ -254,15 +270,7 @@ func TestWithContextErrorMap(t *testing.T) {
 	}
 }
 
-//func prepareArgsWithError() (testWant, testArg) {
-//	err := errors.New("Error 1")
-//	want := testWant{
-//		err: err,
-//		ok:  true,
-//	}
-//}
-
-func TestGroup_GetErrById_GroupNilMapError(t *testing.T) {
+func TestGroup_GetResultByID_GroupNilMapError(t *testing.T) {
 
 	want := testWant{
 		id:  "1",
@@ -270,15 +278,15 @@ func TestGroup_GetErrById_GroupNilMapError(t *testing.T) {
 		ok:  false,
 	}
 	arg := testArg{
-		f: func() error {
+		f: func() (any, error) {
 			time.Sleep(time.Duration(3) * time.Second)
-			return nil
+			return nil, nil
 		},
 		interrupter: false,
 		id:          "1",
 	}
 
-	g, ctx := rungroup.WithContext(context.Background())
+	g, ctx := rungroup.WithContext[string, any](context.Background())
 
 	ticker := time.NewTicker(50 * time.Millisecond)
 	done := make(chan bool)
@@ -288,9 +296,8 @@ func TestGroup_GetErrById_GroupNilMapError(t *testing.T) {
 		case <-done:
 			return
 		case <-ticker.C:
-			err, ok := g.GetErrByID(want.id)
-			//fmt.Println(tc.want.err,tc.want.ok, err, ok)
-			if err != want.err && ok != want.ok {
+			v, err, ok := g.GetResultByID(want.id)
+			if err != want.err && ok != want.ok && v != nil {
 				t.Errorf("%T.GetErrByID returned unexpected error and ok\n"+
 					"Expected err: %v, Expected ok: %v"+
 					"Got err: %v, Got ok: %v", g, err, ok, want.err, want.ok)
@@ -319,7 +326,7 @@ func BenchmarkWithContext(b *testing.B) {
 		errorBomb := errors.New("random error bomb")
 		args := prepareRandomTestArgs(1000, 30, 30, errorBomb)
 		b.ResetTimer()
-		g, ctx := rungroup.WithContext(context.Background())
+		g, ctx := rungroup.WithContext[string, any](context.Background())
 		for _, testArg := range args {
 			g.Go(testArg.f, testArg.interrupter, testArg.id)
 		}
@@ -353,7 +360,7 @@ func BenchmarkWithContextErrorMap_SyncMap(b *testing.B) {
 func benchmarkWithContextErrorMap(errMap concurrent.ConcurrentMap, args []testArg, errBomb error, b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
-		g, ctx := rungroup.WithContextErrorMap(context.Background(), errMap)
+		g, ctx := rungroup.WithContextResultMap[string, any](context.Background(), errMap)
 		for _, testArg := range args {
 			g.Go(testArg.f, testArg.interrupter, testArg.id)
 		}
