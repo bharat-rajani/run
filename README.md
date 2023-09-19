@@ -51,13 +51,14 @@ group, ctx := concurrent.WithContext[TaskIdentifierType, TaskOutputType](parentC
 The first option (WithContextResultMap) initializes the group with a specific result map for storing task results, while the second option (WithContext) sets up the group without a result map.
 
 ## Running Concurrent Tasks
-To run concurrent tasks within the group, use the `Go` method. You can associate each task with a unique identifier for tracking purposes:
+To run concurrent tasks within the group, use the `GoWithFunc` method. You can associate each task with a unique identifier for tracking purposes:
 
 ```go
-group.Go(func() (V, error) {
+ctx := context.Background()
+group.GoWithFunc(func() (V, error) {
     // Your task logic here
     return result, err
-}, interrupter, taskID)
+},ctx, interrupter, taskID)
 ```
 
 

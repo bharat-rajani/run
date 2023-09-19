@@ -78,6 +78,8 @@ func (g *Group[K, V]) Wait() error {
 // Go executes a provided function 'f' concurrently within the Group. It accepts the following parameters:
 //
 //   - f: The function to be executed concurrently, which should return a result value of type 'V' and an error.
+//        Note: It's user's responsibility to respect the context cancellation inside this func. Use GoWithFunc for
+//        context respecting functions.
 //   - interrupter: A boolean flag indicating whether the function execution can be interrupted upon error.
 //   - id: A unique identifier ('id') associated with this concurrent task.
 //
