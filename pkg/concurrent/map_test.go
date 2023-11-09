@@ -91,13 +91,11 @@ func applyRWMutexMap(calls []mapCall) ([]mapResult, map[interface{}]interface{})
 	return applyCalls(new(RWMutexMap), calls)
 }
 
-
 func TestMapMatchesRWMutex(t *testing.T) {
 	if err := quick.CheckEqual(applyMap, applyRWMutexMap, nil); err != nil {
 		t.Error(err)
 	}
 }
-
 
 func TestConcurrentRange(t *testing.T) {
 	const mapSize = 1 << 10

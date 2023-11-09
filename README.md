@@ -9,116 +9,90 @@
 
 ### Goroutines lifecycle manager :bug: :butterfly: :coffin:
 
-Rungroup was created to manage multiple goroutines which may or may not interrupt other goroutines on error.
+RunGroup is a Go package that is designed to effectively manage concurrent tasks within a group, allowing you to track and store their results using a result map. It includes features for setting up contexts, running interrupting concurrent tasks, and retrieving results.
 
-Rationale:
-Whilst hacking with golang, some or the other day you will encounter a situation where you have to manage multiple goroutines which can interrupt other goroutines if an error occurs.
+Table of contents
+=================
 
-A rungroup is essentially a composition of:
-- goroutines
-- optional concurrent(thread safe) ErrorMap to track errors from different goroutines
-- context cancel func, when cancelled can stop other goroutines
-
-A goroutine in rungroup is essentially composition of:
-- a user(programmer) defined function which returns error
-- an identifier (string) which may help you to track goroutine error.
+- [Installation](#installation-floppy_disk)
+- [Usage](#usage)
+- [API Reference](#api-reference)
+- [Examples](#examples)
+- [Contributing](#contributing)
+- [License](#license)
 
 
-### Installation :floppy_disk::
+Installation:floppy_disk:
+=================
+
 ```shell
-go get -u github.com/bharat-rajani/rungroup   
+go get -u github.com/bharat-rajani/rungroup/v2   
 ```
 
-### Example :keyboard::
+Usage
+=================
 
-#### A quick and simple (and maybe dirty) example, where we need to call 3 REST Endpoints concurrently.
+RunGroup is designed to help you manage concurrent tasks and their errors efficiently. Here's how you can use it:
 
-Three gorutines:
-- F_API, interrupter
-- S_API
-- T_API, interrupter
 
-Let's say we don't care about the response from second REST API Endpoint, hence that routine cannot interrupt other routines (F_API, T_API).
-Now as soon as there is an error in F_API (or in T_API) then all other goroutines will be stopped.
+## Setting up a Group with Context and Result Map
+You can create a new concurrent task group with a specific context and result map using the provided functions:
 
 ```go
-package main
+group, ctx := concurrent.WithContextResultMap[TaskIdentifierType, TaskOutputType](parentContext, resultMap)
+```
 
-import (
-	"fmt"
-	"context"
-	"net/http"
-	"github.com/bharat-rajani/rungroup"
-	"github.com/bharat-rajani/rungroup/pkg/concurrent"
-)
+OR
 
-func main() {
-	g, ctx := rungroup.WithContextErrorMap(context.Background(),concurrent.NewRWMutexMap())
-	// g, ctx := rungroup.WithContextErrorMap(context.Background(),new(sync.Map)) //refer Benchmarks for performance difference
-	
-	var fResp, sResp, tResp *http.Response
-	g.GoWithFunc(func(ctx context.Context) error {
-		// error placeholder
-		var tErr error
-		fResp, tErr = http.Get("F_API_URL")
-		if tErr != nil {
-			return tErr
-		}
-		return nil
-	}, ctx, true, "F_API")
+```go
+group, ctx := concurrent.WithContext[TaskIdentifierType, TaskOutputType](parentContext)
+```
 
-	g.GoWithFunc(func(ctx context.Context) error {
-		// error placeholder
-		var tErr error
-		sResp, tErr = http.Get("S_API_URL")
-		if tErr != nil {
-			return tErr
-		}
-		return nil
+The first option (WithContextResultMap) initializes the group with a specific result map for storing task results, while the second option (WithContext) sets up the group without a result map.
 
-	}, ctx, false, "S_API")
+## Running Concurrent Tasks
+To run concurrent tasks within the group, use the `GoWithFunc` method. You can associate each task with a unique identifier for tracking purposes:
 
-	g.GoWithFunc(func(ctx context.Context) error {
-		// error placeholder
-		var tErr error
-		tResp, tErr = http.Get("T_API_URL")
-		if tErr != nil {
-			return tErr
-		}
-		return nil
-	}, ctx, true, "T_API")
-    
-	// returns first error from interrupter routine
-	err := g.Wait()
-	if err != nil {
-		fmt.Println(err)
-	}
-}
+```go
+ctx := context.Background()
+group.GoWithFunc(func() (V, error) {
+    // Your task logic here
+    return result, err
+},ctx, interrupter, taskID)
 ```
 
 
-#### What if error occurs in "S_API" routine ? How can I retrieve its error?
+- func() (V, error): The function to execute concurrently.
+- interrupter: A boolean flag indicating whether the task can be interrupted upon error.
+- taskID: A unique identifier associated with the task.
 
-Since "S_API" is a non interrupter goroutine hence the only way to track its error is by:
 
-```golang
-err, ok := g.GetErrorByID("S_API")
-if ok && err!=nil{
-	fmt.Println(err)
-}
-```
- 
-#### I don't want to concurrently Read or Write errors.
+## Retrieving Task Results
+You can retrieve task results using the GetResultByID method, which takes the task's unique identifier as a parameter:
 
-Ok, I heard you, using concurrent maps comes with performance tradeoff.
-If you don't want to track errors of all gorutines and you are happy with first occurring error, then just use rungroup WithContext:
-
-```golang
-g, ctx := rungroup.WithContext(context.Background())
-...
-...
+```go
+result, err, found := group.GetResultByID(taskID)
 ```
 
-> Note: When you use rungroup.WithContext (no error tracking) then calling g.GetErrorByID() will yield you a nice uninitialized map error and ok = false.
+- result: The result value.
+- err: An error, if any.
+- found: A boolean indicating whether the result was found.
+
+API Reference
+=================
+
+GoDoc
+For detailed information about available functions and types, refer to the GoDoc documentation.
+
+Examples
+=================
+
+Explore the [examples](examples/) directory for usage examples and sample code.
+
+### Contributing
+Contributions to this project are welcome. Please open an issue or submit a pull request for any improvements or bug fixes.
+
+### License
+This project is licensed under the MIT License. See the LICENSE file for details.
 
 > Rungroup is inspired by [errorgroup]( https://github.com/golang/sync/blob/master/errgroup/errgroup.go).
